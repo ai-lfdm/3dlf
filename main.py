@@ -446,7 +446,7 @@ def parse_video_page_and_download(video_id: str, video_url: str) -> Tuple[str, s
     return raw_title, poster_url, date_str, best_url, tags_list
 
 
-def download_file(url: str, referer: str = BASE_URL, timeout: int = 120, retries=3) -> tempfile.NamedTemporaryFile:
+def download_file(url: str, referer: str = BASE_URL, timeout: int = 120, retries=MAX_RETRIES, suffix: str = '.mp4') -> str:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept-Language": "zh-TW,zh;q=0.9",
@@ -454,7 +454,7 @@ def download_file(url: str, referer: str = BASE_URL, timeout: int = 120, retries
     }
     last_exc = None
     for i in range(1, retries + 1):
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
         try:
             with req.get(url, headers=headers, proxies=_get_proxies(), stream=True, timeout=timeout) as r:
                 r.raise_for_status()
@@ -462,11 +462,13 @@ def download_file(url: str, referer: str = BASE_URL, timeout: int = 120, retries
                     if chunk:
                         tmp.write(chunk)
             tmp.flush()
-            tmp.seek(0)
-            return tmp
-        except Exception as e:
+            tmp_path = tmp.name
             tmp.close()
-            os.unlink(tmp.name)
+            return tmp_path
+        except Exception as e:
+            tmp_path = tmp.name
+            tmp.close()
+            os.unlink(tmp_path)
             logger.warning(f"下载失败 (尝试 {i}/{retries}): {e}")
             last_exc = e
             time.sleep(5)
@@ -523,21 +525,75 @@ def process_video(video_info: dict) -> Optional[str]:
         logger.info(f"生成的 caption: {caption}")
 
         final_cover = poster_url if poster_url else cover_fallback
-        video_tmp = download_file(best_video_url, referer=video_url)
+        video_path = download_file(best_video_url, referer=video_url)
 
         thumb_path = None
         if final_cover:
             try:
-                thumb_tmp = download_file(final_cover, referer=video_url)
-                thumb_path = thumb_tmp.name + '.jpg'
-                os.rename(thumb_tmp.name, thumb_path)
+                thumb_path = download_file(final_cover, referer=video_url, suffix='.jpg')
             except Exception as e:
                 logger.warning(f"封面下载失败: {e}")
 
-        send_video_pyrogram(video_tmp.name, thumb_path, caption)
+        try:
+            send_video_pyrogram(video_path, thumb_path, caption)
+        finally:
+            if os.path.exists(video_path):
+                os.unlink(video_path)
+            if thumb_path and os.path.exists(thumb_path):
+                os.unlink(thumb_path)
 
-        os.unlink(video_tmp.name)
-        if thumb_path and os.path.exists(thumb_path):
-            os.unlink(thumb_path)
+        logger.info(f"视频处理完成: {line1}")
+        return vid
+    except Exception as e:
+        logger.error(f"处理失败 {vid}: {e}")
+        return None
 
-        logger.info(f"视频处理完成: {line1}
+
+# ---------- 主函数 ----------
+def main():
+    # 启动时校验必需环境变量
+    validate_env()
+
+    logger.info("====== Hanime1 -> Telegram 最新上市（全量）发布 ======")
+    logger.info(f"代理配置: {'已设置' if PROXY else '未设置'}")
+
+    seen_ids = load_seen_ids()
+    logger.info(f"已发送记录数: {len(seen_ids)}")
+
+    page_url = SEARCH_URL
+    logger.info(f"正在获取页面: {page_url}")
+    soup = get_soup(page_url)
+    all_videos = parse_search_page(soup)  # 直接传 soup，不重复解析
+    logger.info(f"页面上共有 {len(all_videos)} 个视频")
+
+    # 从底部向上收集未发送的视频
+    videos_to_send = []
+    for video in reversed(all_videos):
+        vid = extract_video_id(video['video_url'])
+        if vid and vid not in seen_ids:
+            videos_to_send.append(video)
+            logger.info(f"发现新视频 ID={vid}")
+
+    if not videos_to_send:
+        logger.info("没有新视频需要发送。")
+        return
+
+    logger.info(f"找到 {len(videos_to_send)} 部新视频，开始发送...")
+    success_count = 0
+    for v in videos_to_send:
+        vid = process_video(v)
+        if vid:
+            seen_ids.add(vid)
+            success_count += 1
+            # 每成功一个立即保存，防止中断后重新发送
+            save_seen_ids(seen_ids)
+        time.sleep(REQUEST_DELAY)
+
+    # 运行结束，统一写盘翻译缓存（避免每翻译一条就全量读写一次 JSON）
+    flush_translation_cache()
+
+    logger.info(f"本次成功发送 {success_count} 部视频，任务结束。")
+
+
+if __name__ == "__main__":
+    main()
