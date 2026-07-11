@@ -70,8 +70,11 @@ def validate_env():
         int(os.environ["API_ID"])
     except ValueError:
         sys.exit("API_ID 必须是整数")
-    if not os.environ.get("CHAT_ID", "").lstrip("-").isdigit():
-        sys.exit("CHAT_ID 必须是数字")
+    chat_id = os.environ.get("CHAT_ID", "")
+    if not chat_id:
+        sys.exit("CHAT_ID 未设置")
+    if not (chat_id.lstrip("-").isdigit() or chat_id.startswith("@")):
+        sys.exit("CHAT_ID 必须是数字或@用户名")
 
 
 # ---------- 百度翻译（自动检测语言，目标语言简体中文）----------
