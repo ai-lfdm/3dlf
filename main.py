@@ -204,23 +204,43 @@ def get_soup(url: str, retries=MAX_RETRIES) -> BeautifulSoup:
     }
     for attempt in range(1, retries + 1):
         try:
-            scraper = cloudscraper.create_scraper(
-                browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False},
-                delay=15,
-            )
-            resp = scraper.get(url, timeout=40, proxies=_get_proxies(), headers=headers)
-            resp.raise_for_status()
-            return BeautifulSoup(resp.text, 'html.parser')
-        except Exception as e:
-            logger.warning(f"cloudscraper failed (attempt {attempt}/{retries}): {e}")
-            # Fallback: try regular requests
+            # Method 1: curl_cffi (best TLS fingerprint impersonation)
+            try:
+                from curl_cffi import requests as curl_req
+                resp = curl_req.get(url, headers=headers, impersonate="chrome131", timeout=40, proxies=_get_proxies())
+                resp.raise_for_status()
+                logger.info("curl_cffi succeeded")
+                return BeautifulSoup(resp.text, 'html.parser')
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.warning(f"curl_cffi failed: {e}")
+
+            # Method 2: cloudscraper
+            try:
+                scraper = cloudscraper.create_scraper(
+                    browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False},
+                    delay=15,
+                )
+                resp = scraper.get(url, timeout=40, proxies=_get_proxies(), headers=headers)
+                resp.raise_for_status()
+                logger.info("cloudscraper succeeded")
+                return BeautifulSoup(resp.text, 'html.parser')
+            except Exception as e:
+                logger.warning(f"cloudscraper failed: {e}")
+
+            # Method 3: regular requests
             try:
                 resp = req.get(url, headers=headers, timeout=40, proxies=_get_proxies())
                 resp.raise_for_status()
-                logger.info("Fallback to regular requests succeeded")
+                logger.info("regular requests succeeded")
                 return BeautifulSoup(resp.text, 'html.parser')
-            except Exception as e2:
-                logger.warning(f"regular requests also failed: {e2}")
+            except Exception as e:
+                logger.warning(f"regular requests failed: {e}")
+
+            last_exc = Exception(f"All methods failed for {url}")
+            time.sleep(5)
+        except Exception as e:
             last_exc = e
             time.sleep(5)
     raise last_exc

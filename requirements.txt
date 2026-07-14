@@ -4,3 +4,4 @@ cloudscraper
 pyrogram
 tgcrypto
 zhconv
+curl_cffi
