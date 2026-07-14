@@ -22,10 +22,10 @@ import zhconv
 BASE_URL = "https://hanime1.me"
 SEARCH_URL = f"{BASE_URL}/search?sort=newest&page=1"
 
-CHAT_ID = os.environ["CHAT_ID"]
-API_ID = int(os.environ["API_ID"])
-API_HASH = os.environ["API_HASH"]
-SESSION_STRING = os.environ["SESSION_STRING"]
+CHAT_ID = os.environ.get("CHAT_ID", "@tr3dlf")
+API_ID = int(os.environ.get("API_ID", "0"))
+API_HASH = os.environ.get("API_HASH", "")
+SESSION_STRING = os.environ.get("SESSION_STRING", "")
 
 # 百度翻译配置
 BAIDU_APP_ID = os.environ.get("BAIDU_APP_ID", "")
