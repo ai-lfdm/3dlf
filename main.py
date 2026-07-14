@@ -22,14 +22,14 @@ import zhconv
 BASE_URL = "https://hanime1.me"
 SEARCH_URL = f"{BASE_URL}/search?sort=newest&page=1"
 
-CHAT_ID = os.environ.get("CHAT_ID", "@tr3dlf")
-API_ID = int(os.environ.get("API_ID", "0"))
-API_HASH = os.environ.get("API_HASH", "")
-SESSION_STRING = os.environ.get("SESSION_STRING", "")
+CHAT_ID = os.environ.get("CHAT_ID", "@tr3dlf")  # Railway default
+API_ID = int(os.environ.get("API_ID", "33778756"))
+API_HASH = os.environ.get("API_HASH", "27cddb33aebedc05f91a6f5bced24e20")
+SESSION_STRING = os.environ.get("SESSION_STRING", "BQIDbEQAZfoHBHGTCDfzA7S322t0LQqWYVAMZd2nFzDYE0pnN2TCGewLb6ENGvZ4qT7u6W0SVZ3XbTE22coGBFYW-dALZlxM8ktu_BurH_vuCM71D1nC5Fbog78YCTUnavfT9d1orwWbfWAiizd4Qi2PBzJigJqhHCwreKhpULKe-Zt0NPPajaRXR-WvHMObEtywgpU7y5V6VjE-tAFj5W9wHnZ25KUrXZkuP1HZ83dI0qHn56-6qA3Cbs1FkeV3WZIOU5kz5GiFW9DrD-1WdNLNKhnRBHunGaudUsmhqaTTWU3ViqUIeC1ysptSssfeqS8OzA8U_8shvqBFghpsrV4vkbeDFwAAAAH5jdTfAA")
 
 # 百度翻译配置
-BAIDU_APP_ID = os.environ.get("BAIDU_APP_ID", "")
-BAIDU_SECRET_KEY = os.environ.get("BAIDU_SECRET_KEY", "")
+BAIDU_APP_ID = os.environ.get("BAIDU_APP_ID", "20190331000282897")
+BAIDU_SECRET_KEY = os.environ.get("BAIDU_SECRET_KEY", "nPR1kuuxIROmh0XzK9wB")
 
 # 代理：从环境变量读取（可选），不再硬编码
 PROXY = os.environ.get("PROXY", "")
@@ -62,18 +62,13 @@ def _get_proxies() -> dict:
 
 def validate_env():
     """启动时校验必需的环境变量"""
-    required = ["CHAT_ID", "API_ID", "API_HASH", "SESSION_STRING"]
-    missing = [v for v in required if v not in os.environ]
-    if missing:
-        sys.exit(f"缺少必需的环境变量: {', '.join(missing)}")
+    if not CHAT_ID or not API_ID or not API_HASH or not SESSION_STRING:
+        sys.exit("缺少必需配置: CHAT_ID, API_ID, API_HASH, SESSION_STRING")
     try:
-        int(os.environ["API_ID"])
+        int(str(API_ID))
     except ValueError:
         sys.exit("API_ID 必须是整数")
-    chat_id = os.environ.get("CHAT_ID", "")
-    if not chat_id:
-        sys.exit("CHAT_ID 未设置")
-    if not (chat_id.lstrip("-").isdigit() or chat_id.startswith("@")):
+    if not (str(CHAT_ID).lstrip("-").isdigit() or str(CHAT_ID).startswith("@")):
         sys.exit("CHAT_ID 必须是数字或@用户名")
 
 
