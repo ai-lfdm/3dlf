@@ -20,7 +20,7 @@ import zhconv
 
 # ---------- 配置 ----------
 BASE_URL = "https://hanime1.me"
-SEARCH_URL = f"{BASE_URL}/search?sort=最新上市&page=1"
+SEARCH_URL = f"{BASE_URL}/search?sort=newest&page=1"
 
 CHAT_ID = os.environ["CHAT_ID"]
 API_ID = int(os.environ["API_ID"])
@@ -197,17 +197,30 @@ def extract_video_id(url: str) -> str:
 
 def get_soup(url: str, retries=MAX_RETRIES) -> BeautifulSoup:
     last_exc = None
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    }
     for attempt in range(1, retries + 1):
         try:
             scraper = cloudscraper.create_scraper(
                 browser={'browser': 'chrome', 'platform': 'windows', 'mobile': False},
                 delay=15,
             )
-            resp = scraper.get(url, timeout=40, proxies=_get_proxies())
+            resp = scraper.get(url, timeout=40, proxies=_get_proxies(), headers=headers)
             resp.raise_for_status()
             return BeautifulSoup(resp.text, 'html.parser')
         except Exception as e:
-            logger.warning(f"请求失败 (尝试 {attempt}/{retries}): {url}, 错误: {e}")
+            logger.warning(f"cloudscraper failed (attempt {attempt}/{retries}): {e}")
+            # Fallback: try regular requests
+            try:
+                resp = req.get(url, headers=headers, timeout=40, proxies=_get_proxies())
+                resp.raise_for_status()
+                logger.info("Fallback to regular requests succeeded")
+                return BeautifulSoup(resp.text, 'html.parser')
+            except Exception as e2:
+                logger.warning(f"regular requests also failed: {e2}")
             last_exc = e
             time.sleep(5)
     raise last_exc
@@ -538,6 +551,7 @@ def process_video(video_info: dict) -> Optional[str]:
                 logger.warning(f"封面下载失败: {e}")
 
         try:
+            logger.info(f"正在上传视频 {os.path.getsize(video_path)/1024/1024:.1f}MB...")
             send_video_pyrogram(video_path, thumb_path, caption)
         finally:
             if os.path.exists(video_path):
