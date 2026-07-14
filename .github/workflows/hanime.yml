@@ -2,7 +2,7 @@ name: Hanime1 Daily Videos
 
 on:
   schedule:
-    - cron: '0 2,10,18 * * *'   # 每天 UTC 2:00, 10:00, 18:00 (北京时间 10:00, 18:00, 次日2:00)
+#    - cron: '0 2,10,18 * * *'   # 姣忓ぉ UTC 2:00, 10:00, 18:00 (鍖椾含鏃堕棿 10:00, 18:00, 娆℃棩2:00)
   workflow_dispatch:
   
 concurrency:
